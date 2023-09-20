@@ -5,7 +5,7 @@ sys.path.append('../')
 import bintorch.nn as nn
 import bintorch.nn.functional as F
 from bintorch.autograd import Variable
-from examples.data_mnist import MnistDataset, collate_fn
+from examples.data_mnist_3d import MnistDataset_3d, collate_fn
 from bintorch.utils.data import DataLoader
 import bintorch
 import autograd.numpy as np
@@ -17,15 +17,15 @@ learning_rate = 0.001
 class ConvNet(nn.Module):
     def __init__(self):
         super(ConvNet, self).__init__()
-        self.conv1 = nn.Conv2d(1, 10, kernel_size=5)
-        self.conv2 = nn.Conv2d(10, 20, kernel_size=5)
-        self.fc1 = nn.Linear(320, 50)
+        self.conv1 = nn.Conv3d(1, 10, kernel_size=5)
+        self.conv2 = nn.Conv3d(10, 20, kernel_size=5)
+        self.fc1 = nn.Linear(20*((((28-4)//2-4)//2)**3), 50)
         self.fc2 = nn.Linear(50, 10)
 
     def forward(self, x):
-        x = F.relu(F.max_pool2d(self.conv1(x), 2))
-        x = F.relu(F.max_pool2d(self.conv2(x), 2))
-        x = x.view(-1, 320)
+        x = F.relu(F.max_pool3d(self.conv1(x), 2))
+        x = F.relu(F.max_pool3d(self.conv2(x), 2))
+        x = x.view(-1, 20*((((28-4)//2-4)//2)**3))
         x = self.fc1(x)
         x = F.dropout(x, training=self.training)
         x = F.relu(x)
@@ -34,12 +34,12 @@ class ConvNet(nn.Module):
 
 model = ConvNet()
 
-train_loader = DataLoader(dataset=MnistDataset(training=True, flatten=False),
+train_loader = DataLoader(dataset=MnistDataset_3d(training=True, flatten=False),
                                   collate_fn=collate_fn,
                                   shuffle=True,
                                   batch_size=batch_size)
 
-test_loader = DataLoader(dataset=MnistDataset(training=False, flatten=False),
+test_loader = DataLoader(dataset=MnistDataset_3d(training=False, flatten=False),
                                   collate_fn=collate_fn,
                                   shuffle=False,
                                   batch_size=batch_size)
