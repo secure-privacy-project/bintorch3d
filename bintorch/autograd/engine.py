@@ -1,6 +1,10 @@
 from .variable import Variable
 from .function import AccumulateGrad
-import numpy as np
+import os
+if os.environ.get("DP_NUMPY", "1") == "0":
+    import numpy as np
+else:
+    import dp_numpy as np
 
 def excute(fn, grad_in=None):
     if fn is not None:
