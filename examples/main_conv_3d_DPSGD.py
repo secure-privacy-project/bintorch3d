@@ -9,9 +9,10 @@ from examples.data_mnist_3d import MnistDataset_3d, collate_fn
 from bintorch.utils.data import DataLoader
 import bintorch
 import autograd.numpy as np
+import dp_numpy as dnp
 
 import DP_util
-import opacus
+# import opacus
 
 
 num_epochs = 300
@@ -19,7 +20,8 @@ batch_size_test = 64
 learning_rate = 0.01
 max_grad_norm = 1
 noise_multiplier = 0.1
-stochastic_batch_size = 64
+batch_size_stochastic_train = 64
+eps_per_minibatch = 10000.0 * batch_size_stochastic_train
 
 class ConvNet(nn.Module):
     def __init__(self):
@@ -69,10 +71,8 @@ def eval_model(epoch):
 
     print('\rEpoch [{}/{}], Test Accuracy: {}%  Loss: {:.4f}'.format(epoch + 1, num_epochs, 100 * correct / total, loss/total))
 
-index_in_stochastic_batch_size = 0
-
-for param in model.parameters():
-    param.summed_grad = None
+index_in_stochastic_batch = 0
+DP_util.zero_grad(model.parameters())
 
 for epoch in range(num_epochs):
     model.train()
@@ -84,47 +84,49 @@ for epoch in range(num_epochs):
         outputs = model(images)
 
         loss = F.cross_entropy(outputs, labels)
+        # loss = DP_util.cross_entropy_loss_without_reduction(outputs, labels)
         
         # Backward and optimize
-        # zero_grad (for each sample)
-        for param in model.parameters():
-            if param.grad is not None: 
-                param.grad.fill(0)
+        grad_reducer = None
 
+        # zero_grad (for each sample)
+        DP_util.zero_grad(model.parameters())
+
+        # calculate the gradient vector of each case in batch
         loss.backward()
 
-        # hand-made optimization
-        # gradient clipping
-        L2norm = 0
-        for param in model.parameters():
-            # calculate L2 norm
-            L2norm += np.sum(np.ravel(param.grad)**2)
-        L2norm = L2norm ** .5
-        clip_factor = (max_grad_norm / L2norm + 1e-6)
-        clip_factor = np.minimum(clip_factor, 1.0)
-        for param in model.parameters():
-            # clip by L2 norm
-            clipped_grad = param.grad * clip_factor
-            # noising
-            noised_grad = clipped_grad + np.random.normal(
-                size=param.grad.shape, 
-                scale=noise_multiplier * max_grad_norm
+        # serialize the grad
+        grad = DP_util.load_and_serialize_grads(model.parameters())
+
+        # reducer
+        if grad_reducer is None:
+            grad_reducer = dnp.reducer.mean(
+                np.ones_like(grad) * -max_grad_norm, # minimum
+                np.ones_like(grad) * +max_grad_norm # maximum
             )
-            # add
-            if param.summed_grad is None:
-                param.summed_grad = noised_grad
-            else:
-                param.summed_grad += noised_grad
-        
-        index_in_stochastic_batch_size += 1
-        if index_in_stochastic_batch_size == stochastic_batch_size:
-            # optimize
-            print("*")
+        grad_reducer.add(grad)
+
+        index_in_stochastic_batch += 1
+
+        if index_in_stochastic_batch == batch_size_stochastic_train:
+            # get accumulated grad with Laplace mechanism
+            accumlated_grad = grad_reducer.laplace(eps_per_minibatch)
+
+            # write back to the model's grad
+            DP_util.deserialize_and_save(accumlated_grad, model.parameters())
+
+            # add to the weight
             for param in model.parameters():
-                param.grad = param.summed_grad
-                param.data += -learning_rate * param.grad
-                param.summed_grad = None
-            index_in_stochastic_batch_size = 0
+                if param.grad is not None:
+                    param.data += -learning_rate * param.grad
+
+            # clear accumulator and count
+            grad_reducer = None
+            index_in_stochastic_batch = 0
+
+            DP_util.zero_grad(model.parameters())
+            print('+')
+
 
         print('\rEpoch [{}/{}], Step [{}/{}], Loss: {:.4f}'
                   .format(epoch + 1, num_epochs, i + 1, len(train_loader), loss.data), end=' ')
