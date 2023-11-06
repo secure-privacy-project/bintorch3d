@@ -12,16 +12,17 @@ import autograd.numpy as np
 import dp_numpy as dnp
 
 import DP_util
-# import opacus
+
 
 
 num_epochs = 300
 batch_size_test = 64
-learning_rate = 0.01
-max_grad_norm = 1
-noise_multiplier = 0.1
+learning_rate = 0.1
+max_grad_norm = 100000
 batch_size_stochastic_train = 64
-eps_per_minibatch = 10000.0 * batch_size_stochastic_train
+eps_per_minibatch = 100000 * batch_size_stochastic_train
+
+
 
 class ConvNet(nn.Module):
     def __init__(self):
@@ -73,6 +74,7 @@ def eval_model(epoch):
 
 index_in_stochastic_batch = 0
 DP_util.zero_grad(model.parameters())
+grad_reducer = None
 
 for epoch in range(num_epochs):
     model.train()
@@ -87,8 +89,6 @@ for epoch in range(num_epochs):
         # loss = DP_util.cross_entropy_loss_without_reduction(outputs, labels)
         
         # Backward and optimize
-        grad_reducer = None
-
         # zero_grad (for each sample)
         DP_util.zero_grad(model.parameters())
 
@@ -101,8 +101,8 @@ for epoch in range(num_epochs):
         # reducer
         if grad_reducer is None:
             grad_reducer = dnp.reducer.mean(
-                np.ones_like(grad) * -max_grad_norm, # minimum
-                np.ones_like(grad) * +max_grad_norm # maximum
+                np.ones_like(grad) * -max_grad_norm / np.prod(grad.shape), # minimum
+                np.ones_like(grad) * +max_grad_norm / np.prod(grad.shape) # maximum
             )
         grad_reducer.add(grad)
 
@@ -110,7 +110,7 @@ for epoch in range(num_epochs):
 
         if index_in_stochastic_batch == batch_size_stochastic_train:
             # get accumulated grad with Laplace mechanism
-            accumlated_grad = grad_reducer.laplace(eps_per_minibatch)
+            accumlated_grad = grad_reducer.laplace_eps_dp(eps_per_minibatch)
 
             # write back to the model's grad
             DP_util.deserialize_and_save(accumlated_grad, model.parameters())

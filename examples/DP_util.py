@@ -85,7 +85,7 @@ def load_and_serialize_grads(parameters):
     for param in params:
         if param.grad is not None:
             size_param = np.prod(param.grad.shape)
-            res[index_params:index_params+size_param] = param.grad.ravel()
+            res[index_params:index_params+size_param] = np.copy(param.grad.flatten())
             index_params += size_param
 
     assert index_params == num_params
