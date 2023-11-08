@@ -20,7 +20,7 @@ class Conv3d(Function):
             else:
                 return out
 
-        np_args = (input.data, weights.data, None if bias is None else bias.data)
+        np_args = (input.data, weights.data, None if bias is None else bias.data, stride, padding)
         return np_fn, np_args, np_fn(*np_args)
 
     @staticmethod

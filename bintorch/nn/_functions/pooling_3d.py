@@ -10,6 +10,7 @@ def _pool_forward_3d(X, size=2, stride=2):
     w_out = (w - size) / stride + 1
 
     if not d_out.is_integer() or not w_out.is_integer() or not h_out.is_integer():
+        print(f"X.shape={X.shape}")
         raise Exception('Invalid output dimension!')
 
     d_out, h_out, w_out = int(d_out), int(h_out), int(w_out)

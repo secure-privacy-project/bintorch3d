@@ -40,7 +40,7 @@ def im2col_indices(x, field_depth, field_height, field_width, padding=1, stride=
     p = padding
     x_padded = np.pad(x, ((0, 0), (0, 0), (p, p), (p, p), (p, p)), mode='constant')
 
-    l, i, j, k = get_im2col_indices(x.shape, field_depth, field_height, field_width, padding, stride)
+    l, i, j, k = get_im2col_indices(x.shape, field_depth, field_height, field_width, padding=padding, stride=stride)
 
     cols = np.array(x_padded[:, l, i, j, k])
     C = x.shape[1]
