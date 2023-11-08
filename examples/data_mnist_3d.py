@@ -52,7 +52,7 @@ def load_mnist(flatten=True):
     train_images, train_labels, test_images, test_labels = mnist()
 
     # make it 3d
-    train_images = np.repeat(train_images[0:1000, np.newaxis, :, :], 28, axis=1)
+    train_images = np.repeat(train_images[0:10000, np.newaxis, :, :], 28, axis=1)
     test_images = np.repeat(test_images[0:1000, np.newaxis, :, :], 28, axis=1)
 
     train_images = partial_flatten(train_images) / 255.0
