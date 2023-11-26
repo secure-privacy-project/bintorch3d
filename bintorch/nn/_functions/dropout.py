@@ -11,7 +11,7 @@ class Dropout(Function):
         def np_fn(input_np, noise):
             return input_np * noise
 
-        noise = np.random.binomial(1, p, size=input.data.shape)
+        noise = np.random.binomial(1, 1-p, size=input.data.shape) / (1-p)
         if not train:
             noise.fill(1)
         if p == 1:

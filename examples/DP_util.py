@@ -54,7 +54,10 @@ def zero_grad(parameters):
     """
     for param in parameters:
         if param.grad is not None: 
-            param.grad.fill(0)
+            try:
+                param.grad.fill(0)
+            except:
+                param.grad.fill_(0)
 
 
 
@@ -108,4 +111,63 @@ def deserialize_and_save(serialized, parameters):
             )
             index_params += size_param
     assert index_params == len(serialized)
+
+
+
+use_torch = True
+
+if use_torch:
+    import torch
+
+    def load_and_serialize_grads_torch(parameters):
+        """
+            serialize parameters to a 1-d np.ndarray
+
+            parameters : list
+                parameters of a case
+
+            return value: np.ndarray((num_param))
+                serialized parameter gradient vector
+        """
+        params = list(parameters)
+
+        # analyze
+        num_params = 0
+        for param in params:
+            if param.grad is not None:
+                num_params += np.prod(param.grad.shape)
+
+        # alloc
+        res = np.zeros((num_params), dtype=np.float32)
+
+        
+        # load
+        index_params = 0
+        for param in params:
+            if param.grad is not None:
+                size_param = np.prod(param.grad.shape)
+                res[index_params:index_params+size_param] = torch.clone(param.grad.flatten()).to("cpu").numpy()
+                index_params += size_param
+
+        assert index_params == num_params
+        return res
+
+
+
+    def deserialize_and_save_torch(serialized, parameters):
+        """
+            deserialize "serialized" and save to "parameters"'s grad
+        """
+        # save
+        index_params = 0
+        for param in parameters:
+            if param.grad is not None:
+                size_param = np.prod(param.grad.shape)
+                param.grad = torch.tensor(np.reshape(
+                    serialized[index_params:index_params+size_param], 
+                    param.grad.shape
+                ), dtype = torch.float32, device = param.grad.device)
+                index_params += size_param
+        assert index_params == len(serialized)
+
 

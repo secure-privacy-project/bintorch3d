@@ -4,9 +4,9 @@ def mse_loss(input, target, size_average=True):
 
     return _functions.MSELoss.apply(input, target, size_average)
 
-def cross_entropy(input, target, size_average=True):
+def cross_entropy(input, target, size_average=True, weight=None, reduction='mean'):
 
-    return _functions.CrossEntropy.apply(input, target, size_average)
+    return _functions.CrossEntropy.apply(input, target, size_average, weight, reduction)
 
 def linear(input, weight, bias=None):
 

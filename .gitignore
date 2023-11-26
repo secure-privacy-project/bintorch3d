@@ -107,3 +107,7 @@ ENV/
 # C#
 bin/
 obj/
+
+# pickle
+*.npz
+*.npy
